@@ -1,0 +1,136 @@
+{
+    "scan_status": "FAILED",
+    "total_issues": 26,
+    "findings": [
+        {
+            "file": "/Users/fareezarahman/Desktop/cicd-pipeline-shield/tests/samples/emergency.txt",
+            "type": "Sensitive Data Leak",
+            "detail": "AWS Access Key"
+        },
+        {
+            "file": "/Users/fareezarahman/Desktop/cicd-pipeline-shield/.venv/bin/python3",
+            "type": "Dangerous Permissions",
+            "detail": "File is world-writable/executable (Mode: 755)"
+        },
+        {
+            "file": "/Users/fareezarahman/Desktop/cicd-pipeline-shield/.venv/bin/pip3.13",
+            "type": "Dangerous Permissions",
+            "detail": "File is world-writable/executable (Mode: 755)"
+        },
+        {
+            "file": "/Users/fareezarahman/Desktop/cicd-pipeline-shield/.venv/bin/python",
+            "type": "Dangerous Permissions",
+            "detail": "File is world-writable/executable (Mode: 755)"
+        },
+        {
+            "file": "/Users/fareezarahman/Desktop/cicd-pipeline-shield/.venv/bin/pip3",
+            "type": "Dangerous Permissions",
+            "detail": "File is world-writable/executable (Mode: 755)"
+        },
+        {
+            "file": "/Users/fareezarahman/Desktop/cicd-pipeline-shield/.venv/bin/pip",
+            "type": "Dangerous Permissions",
+            "detail": "File is world-writable/executable (Mode: 755)"
+        },
+        {
+            "file": "/Users/fareezarahman/Desktop/cicd-pipeline-shield/.venv/bin/python3.13",
+            "type": "Dangerous Permissions",
+            "detail": "File is world-writable/executable (Mode: 755)"
+        },
+        {
+            "file": "/Users/fareezarahman/Desktop/cicd-pipeline-shield/.venv/lib/python3.13/site-packages/pip/_internal/network/auth.py",
+            "type": "Sensitive Data Leak",
+            "detail": "Potential Password/Secret"
+        },
+        {
+            "file": "/Users/fareezarahman/Desktop/cicd-pipeline-shield/.venv/lib/python3.13/site-packages/pip/_internal/utils/misc.py",
+            "type": "Sensitive Data Leak",
+            "detail": "Potential Password/Secret"
+        },
+        {
+            "file": "/Users/fareezarahman/Desktop/cicd-pipeline-shield/.venv/lib/python3.13/site-packages/pip/_internal/vcs/versioncontrol.py",
+            "type": "Sensitive Data Leak",
+            "detail": "Potential Password/Secret"
+        },
+        {
+            "file": "/Users/fareezarahman/Desktop/cicd-pipeline-shield/.venv/lib/python3.13/site-packages/pip/_internal/vcs/subversion.py",
+            "type": "Sensitive Data Leak",
+            "detail": "Potential Password/Secret"
+        },
+        {
+            "file": "/Users/fareezarahman/Desktop/cicd-pipeline-shield/.venv/lib/python3.13/site-packages/pip/_vendor/truststore/_api.py",
+            "type": "Sensitive Data Leak",
+            "detail": "Potential Password/Secret"
+        },
+        {
+            "file": "/Users/fareezarahman/Desktop/cicd-pipeline-shield/.venv/lib/python3.13/site-packages/pip/_vendor/distlib/index.py",
+            "type": "Sensitive Data Leak",
+            "detail": "Potential Password/Secret"
+        },
+        {
+            "file": "/Users/fareezarahman/Desktop/cicd-pipeline-shield/.venv/lib/python3.13/site-packages/pip/_vendor/distlib/util.py",
+            "type": "Sensitive Data Leak",
+            "detail": "Potential Password/Secret"
+        },
+        {
+            "file": "/Users/fareezarahman/Desktop/cicd-pipeline-shield/.venv/lib/python3.13/site-packages/pip/_vendor/requests/auth.py",
+            "type": "Sensitive Data Leak",
+            "detail": "Potential Password/Secret"
+        },
+        {
+            "file": "/Users/fareezarahman/Desktop/cicd-pipeline-shield/.venv/lib/python3.13/site-packages/pip/_vendor/requests/sessions.py",
+            "type": "Sensitive Data Leak",
+            "detail": "Potential Password/Secret"
+        },
+        {
+            "file": "/Users/fareezarahman/Desktop/cicd-pipeline-shield/.venv/lib/python3.13/site-packages/pip/_vendor/requests/adapters.py",
+            "type": "Sensitive Data Leak",
+            "detail": "Potential Password/Secret"
+        },
+        {
+            "file": "/Users/fareezarahman/Desktop/cicd-pipeline-shield/.venv/lib/python3.13/site-packages/pip/_vendor/rich/console.py",
+            "type": "Sensitive Data Leak",
+            "detail": "Potential Password/Secret"
+        },
+        {
+            "file": "/Users/fareezarahman/Desktop/cicd-pipeline-shield/.venv/lib/python3.13/site-packages/pip/_vendor/rich/prompt.py",
+            "type": "Sensitive Data Leak",
+            "detail": "Potential Password/Secret"
+        },
+        {
+            "file": "/Users/fareezarahman/Desktop/cicd-pipeline-shield/.venv/lib/python3.13/site-packages/pip/_vendor/urllib3/connection.py",
+            "type": "Sensitive Data Leak",
+            "detail": "Potential Password/Secret"
+        },
+        {
+            "file": "/Users/fareezarahman/Desktop/cicd-pipeline-shield/.venv/lib/python3.13/site-packages/pip/_vendor/urllib3/connectionpool.py",
+            "type": "Sensitive Data Leak",
+            "detail": "Potential Password/Secret"
+        },
+        {
+            "file": "/Users/fareezarahman/Desktop/cicd-pipeline-shield/.venv/lib/python3.13/site-packages/pip/_vendor/urllib3/util/ssl_.py",
+            "type": "Sensitive Data Leak",
+            "detail": "Potential Password/Secret"
+        },
+        {
+            "file": "/Users/fareezarahman/Desktop/cicd-pipeline-shield/.venv/lib/python3.13/site-packages/pip/_vendor/urllib3/contrib/securetransport.py",
+            "type": "Sensitive Data Leak",
+            "detail": "Potential Password/Secret"
+        },
+        {
+            "file": "/Users/fareezarahman/Desktop/cicd-pipeline-shield/.venv/lib/python3.13/site-packages/pip/_vendor/urllib3/contrib/socks.py",
+            "type": "Sensitive Data Leak",
+            "detail": "Potential Password/Secret"
+        },
+        {
+            "file": "/Users/fareezarahman/Desktop/cicd-pipeline-shield/.venv/lib/python3.13/site-packages/pip/_vendor/urllib3/contrib/pyopenssl.py",
+            "type": "Sensitive Data Leak",
+            "detail": "Potential Password/Secret"
+        },
+        {
+            "file": "/Users/fareezarahman/Desktop/cicd-pipeline-shield/.venv/lib/python3.13/site-packages/pip/_vendor/urllib3/contrib/_securetransport/low_level.py",
+            "type": "Sensitive Data Leak",
+            "detail": "Potential Password/Secret"
+        }
+    ]
+}
