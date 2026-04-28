@@ -11,16 +11,16 @@ class ScanEngine:
         self.signatures = {
             "AWS Access Key": r"AKIA[0-9A-Z]{16}",
             "Private Key Block": r"-----BEGIN [A-Z ]+ PRIVATE KEY-----",
-            # This version catches 'key=val', 'key: val', and 'key : "val"'
-            "Potential Password/Secret": r"(?i)(password|passwd|secret|api_key|auth_token)\s*[:=]\s*.+",
+            # Catches key=val, key: val, "key" = val, 'key' = 'val', etc.
+            "Potential Password/Secret": r"""(?i)(password|passwd|secret|api_key|auth_token)['"]*\s*[:=]\s*.+""",
             "SSN (PII)": r"\b\d{3}-\d{2}-\d{4}\b"
         }
 
     def run_all_checks(self):
             """Main entry point for the engine logic."""
             for root, dirs, files in os.walk(self.target_path):
-                # Optimization: Doesn't dive into .git or virtual environments
-                dirs[:] = [d for d in dirs if d not in ['.git', 'venv', '__pycache__']]
+                # Skip version control, virtual environments, and cache dirs
+                dirs[:] = [d for d in dirs if d not in {'.git', 'venv', '.venv', '__pycache__', 'node_modules'}]
                 
                 for file in files:
                     file_path = os.path.join(root, file)
@@ -40,8 +40,8 @@ class ScanEngine:
                     "type": "Dangerous Permissions",
                     "detail": f"File is world-writable/executable (Mode: {oct(mode)[-3:]})"
                 })
-        except Exception as e:
-            pass # Handle permission denied errors silently
+        except Exception:
+            pass
 
 
     def _scan_file_content(self, file_path):
