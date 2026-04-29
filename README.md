@@ -11,7 +11,7 @@ This project is a lightweight Static Application Security Testing (SAST) tool. I
 - Docker Desktop
 - Github
 
-###  1.Local Development Setup**
+### 1. Local Development Setup
 
 **Clone the repository**
 ```bash
@@ -32,16 +32,22 @@ pip install -r requirements.txt
 python3 scanner/main.py [path_to_target_folder]
 ```
 
-### 1. Running with Docker
+### 2. Running with Docker
 
 **Build docker image**
 ```bash
-docker build -t shield-pipe -f deployment/Dockerfile .
+docker build -t shield-pipe:dev -f deployment/Dockerfile .
 ```
 
 **Run a scan on current directory**
+
+Source is mounted read-only (the scanner shouldn't mutate your code); the reports directory is mounted read-write so `security_report.json` lands back on the host.
+
 ```bash
-docker run --rm -v $(pwd):/data shield-pipe /data
+docker run --rm \
+  -v $(pwd):/data:ro \
+  -v $(pwd)/reports:/app/reports \
+  shield-pipe:dev /data
 ```
 
 ---
@@ -55,11 +61,16 @@ shield-pipe/
 │   ├── engine.py           # The "Brain" (Regex & Permission checks)
 │   └── reporter.py         # Report Generation (JSON output)
 ├── tests/                  # Sample Data
-│   └── samples/            # "Vulnerable" files for testing the scanner
+│   ├── samples/            # "Vulnerable" files for testing the scanner
+│   └── test_scanner.py     # Unit tests
 ├── deployment/             # Infrastructure & Automation
-│   └── Dockerfile          # Container definition
+│   ├── Dockerfile          # Container definition
+│   └── entrypoint.sh       # Container startup script (banner + scanner exec)
+├── reports/                # Scan output — security_report.json lands here (gitignored)
 ├── Jenkinsfile             # CI/CD Pipeline definition
 ├── requirements.txt        # Python dependencies
+├── .dockerignore           # Files excluded from the Docker build context
+├── .gitignore              # Files excluded from version control
 └── README.md               # Project documentation
 ```
 ---
