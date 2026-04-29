@@ -107,11 +107,13 @@ Statelessness: No database is required. Each scan is independent, and results ar
 
 The repository ships a [Jenkinsfile](Jenkinsfile) that defines a 3-stage declarative pipeline (Checkout → Build → Scan) plus a `post` block that archives `reports/security_report.json` on every run.
 
-### 1. Run Jenkins locally (Docker-out-of-Docker)
+This walkthrough assumes you have **Docker Desktop running on macOS** and a **GitHub account**. Follow each step in order — every command is copy-paste ready.
 
-The pipeline shells out to `docker build` / `docker run`, so the Jenkins container needs access to the host Docker daemon. Equally important: the Jenkins workspace path **inside** the container must match the path **on** the host, because `docker run -v ${WORKSPACE}:/data` is resolved by the host daemon — not by Jenkins.
+### Step 1 — Start the Jenkins container
 
-The simplest way to satisfy both is to bind-mount a host directory at the same path used inside the container:
+The pipeline runs `docker build` / `docker run` from inside Jenkins, so the Jenkins container needs to reach your host's Docker daemon. We also need the workspace path **inside** the Jenkins container to match the path **on** the host, because `docker run -v ${WORKSPACE}:/data` is resolved by the host daemon — not by Jenkins. The bind-mount below satisfies both.
+
+Run from any directory:
 
 ```bash
 mkdir -p ~/jenkins_home
@@ -124,38 +126,110 @@ docker run -d --name jenkins \
   jenkins/jenkins:lts
 ```
 
-Then install the Docker CLI inside the container so the pipeline's `sh 'docker ...'` calls work:
+The first run pulls the image (~600MB), so give it a minute. Verify it's up:
+
+```bash
+docker ps --filter name=jenkins
+```
+
+You should see one row with `STATUS` like `Up 30 seconds` and `0.0.0.0:8080->8080/tcp` in the ports column.
+
+### Step 2 — Install the Docker CLI inside Jenkins
+
+The Jenkins image doesn't ship with the `docker` binary, but our pipeline calls `sh 'docker build ...'`. Install it:
 
 ```bash
 docker exec -u root jenkins bash -c "apt-get update && apt-get install -y docker.io"
 ```
 
-Get the initial admin password and finish the web setup at `http://localhost:8080`:
+This takes about 30 seconds. The `-u root` flag is required because installing packages needs root inside the container — Jenkins itself still runs as the `jenkins` user.
+
+### Step 3 — Fix the Docker socket permissions (macOS gotcha)
+
+On Docker Desktop for macOS, the socket inside the Jenkins container is owned by `root:root`, but the `jenkins` user isn't in the root group by default. Without this fix, you'll see `permission denied while trying to connect to the Docker daemon socket`.
+
+Add `jenkins` to the root group, then restart so the new group membership takes effect:
+
+```bash
+docker exec -u root jenkins usermod -aG root jenkins
+docker restart jenkins
+```
+
+> **Why this is acceptable here:** giving `jenkins` group-read access to root-owned files inside this single container is a common pattern for local DooD setups. For production Jenkins you'd use a dedicated `docker` group at the right GID, rootless Docker, or a `dind` sidecar.
+
+### Step 4 — Verify Jenkins can drive Docker
+
+```bash
+docker exec jenkins docker version
+```
+
+You should see **two** sections — `Client:` *and* `Server: Docker Desktop ...`. If you only see `Client:` and a permission error, repeat Step 3.
+
+### Step 5 — Unlock Jenkins and complete first-time setup
+
+Get the initial admin password:
 
 ```bash
 docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
 ```
 
-### 2. Install required plugins
+Open `http://localhost:8080` in your browser, then:
 
-From **Manage Jenkins → Plugins → Available**, install:
-- **GitHub** — webhook integration
-- **Pipeline** + **Pipeline: Stage View** — declarative pipeline support
-- **Docker Pipeline** — optional, for cleaner Docker syntax in future iterations
+1. **Unlock Jenkins** — paste the password, click **Continue**.
+2. **Customize Jenkins** — click **Install suggested plugins**. Wait ~2 minutes. (The suggested set includes Git, Pipeline, and GitHub — everything we need.)
+3. **Create First Admin User** — fill in username/password/email, click **Save and Continue**.
+4. **Instance Configuration** — leave the URL as `http://localhost:8080/`, click **Save and Finish**.
+5. Click **Start using Jenkins**. You should land on the dashboard.
 
-### 3. Create the Pipeline job
+### Step 6 — Make sure Jenkins can read your GitHub repo
 
-1. **New Item → Pipeline**, name it `shield-pipe`
-2. Under **Build Triggers**, check **GitHub hook trigger for GITScm polling**
-3. Under **Pipeline**:
-   - Definition: **Pipeline script from SCM**
-   - SCM: **Git**
-   - Repository URL: `https://github.com/fareeza05/cicd-pipeline-shield.git`
-   - Branch: `*/main`
-   - Script Path: `Jenkinsfile`
-4. **Save**
+GitHub dropped HTTPS password authentication in 2021, so Jenkins can't clone a **private** repo without credentials. Pick **one** of the two options below.
 
-### 4. Wire up the GitHub webhook
+**Option A — Make the repo public (simplest):**
+
+GitHub → your repo → **Settings → General → scroll to "Danger Zone" → Change repository visibility → Make public**. The test fixtures in this project only contain *fake* secrets, so there's no real risk.
+
+**Option B — Use a Personal Access Token (keeps the repo private):**
+
+1. GitHub → click your avatar (top-right) → **Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token (classic)**.
+2. **Note:** `jenkins-shield-pipe`. **Expiration:** 90 days. **Scopes:** check `repo`.
+3. Click **Generate token** and copy the `ghp_...` string immediately — GitHub will not show it again.
+4. You'll add this token to the Jenkins job in Step 7 below.
+
+### Step 7 — Create the Pipeline job
+
+In the Jenkins dashboard:
+
+1. Click **New Item** (top-left).
+2. Enter the name `shield-pipe`, select **Pipeline**, click **OK**.
+3. On the configuration page:
+   - **Build Triggers:** check **GitHub hook trigger for GITScm polling**.
+   - **Pipeline** section:
+     - **Definition:** `Pipeline script from SCM`
+     - **SCM:** `Git`
+     - **Repository URL:** `https://github.com/<your-username>/cicd-pipeline-shield.git`
+     - **Credentials:** if you chose Option B above, click **Add → Jenkins**, set Kind = `Username with password`, Username = your GitHub username, Password = the `ghp_...` token, ID = `github-pat`, click **Add**, then select `github-pat` from the dropdown. If you chose Option A, leave this as `- none -`.
+     - **Branch Specifier:** `*/main`
+     - **Script Path:** `Jenkinsfile` (default)
+4. Click **Save**.
+
+### Step 8 — Test the pipeline manually
+
+Before involving GitHub webhooks, run the pipeline directly to confirm it works.
+
+On the job page, click **Build Now** in the left sidebar. A build appears under **Build History**. Click the build number, then **Console Output** to stream logs.
+
+Expected sequence:
+
+1. Git clone of your repo
+2. `docker build` running through the Dockerfile
+3. `docker run` executing the scanner against the workspace
+4. Scanner exits with code `1` (because [tests/samples/](tests/samples/) contains a fake AWS key and password)
+5. Build marked **FAILED** (red ball) — this is the *expected* outcome; the security gate is working
+
+Go back to the build page and look for the **Artifacts** section in the left sidebar — `security_report.json` should be downloadable there.
+
+### Step 9 — Wire up the GitHub webhook
 
 Local Jenkins isn't reachable from `github.com` by default. Expose it with [ngrok](https://ngrok.com/):
 
@@ -163,22 +237,34 @@ Local Jenkins isn't reachable from `github.com` by default. Expose it with [ngro
 ngrok http 8080
 ```
 
-Copy the `https://...ngrok-free.app` URL, then in the GitHub repo:
+Copy the `https://...ngrok-free.app` URL ngrok prints. Then in the GitHub repo:
 
 **Settings → Webhooks → Add webhook**
-- Payload URL: `https://<your-ngrok-id>.ngrok-free.app/github-webhook/` (trailing slash matters)
-- Content type: `application/json`
-- Events: **Just the push event**
-- Active: ✓
+- **Payload URL:** `https://<your-ngrok-id>.ngrok-free.app/github-webhook/` (the trailing slash matters)
+- **Content type:** `application/json`
+- **Which events?:** Just the push event.
+- **Active:** checked.
+- Click **Add webhook**.
 
-### 5. Verify the loop
+GitHub will send a test ping immediately. Refresh the webhook page — you should see a green checkmark next to **Recent Deliveries** at the bottom.
+
+### Step 10 — Verify end-to-end
 
 ```bash
 git commit --allow-empty -m "trigger pipeline"
 git push
 ```
 
-Watch the Jenkins build start automatically. With the test fixtures in [tests/samples/](tests/samples/) intact, the build should go **RED** and `security_report.json` should be downloadable from the build's **Artifacts** section.
+Within a few seconds, a new build should appear under **Build History** in Jenkins, started automatically by the push. With the test fixtures intact it should go RED and `security_report.json` should be archived as an artifact.
+
+---
+
+### Common issues
+
+- **"permission denied while trying to connect to the Docker daemon socket"** in Step 4 — repeat Step 3 (`usermod -aG root jenkins` + `docker restart jenkins`).
+- **"Authentication failed for ..."** when saving the job in Step 7 — the repo is private and you skipped Option B. Either make the repo public or add a Personal Access Token credential.
+- **Webhook delivery shows red X in GitHub** — your ngrok tunnel probably stopped. Restart `ngrok http 8080` and update the Payload URL on the webhook (ngrok URLs change each session unless you have a paid plan).
+- **Build stuck "pending"** — Jenkins can't reach `docker`. Re-run `docker exec jenkins docker version` and confirm both Client and Server show.
 
 ---
 
