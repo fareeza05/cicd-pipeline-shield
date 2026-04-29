@@ -1,27 +1,34 @@
-# Using a slim version of Python to keep the image small
+# Slim base keeps the image small and reduces attack surface.
 FROM python:3.11-slim
 
-# Set the working directory inside the container
+LABEL maintainer="shield-pipe"
+LABEL description="Lightweight DevSecOps scanner: secret detection + permission audit"
+
 WORKDIR /app
 
-# Step 1: Copy only the requirements first
-# This allows Docker to cache the 'pip install' layer unless requirements.txt changes
-COPY requirements.txt .
+# Non-root user. UID 1000 lines up with the default Jenkins agent UID,
+# which makes host-mounted volume writes Just Work in the common case.
+RUN groupadd -g 1000 scanner && \
+    useradd -u 1000 -g scanner -M -s /bin/sh scanner
 
-# Step 2: Install dependencies
+# Install dependencies first so this layer is cached unless requirements change.
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Step 3: Copy the rest of the scanner source code
-# We copy the 'scanner' folder into the container
+# Copy scanner source and entrypoint script.
 COPY scanner/ ./scanner/
+COPY deployment/entrypoint.sh /app/entrypoint.sh
 
-# Create a directory for the reports to be saved
-RUN mkdir -p /app/reports
+# Reports dir + ownership in a single layer.
+RUN chmod +x /app/entrypoint.sh && \
+    mkdir -p /app/reports && \
+    chown -R scanner:scanner /app
 
-# Set the environment variable to ensure Python output is sent straight to terminal
+USER scanner
+
+# Send Python output straight to the terminal (no buffering) so Jenkins
+# logs reflect scan progress in real time.
 ENV PYTHONUNBUFFERED=1
 
-# The entrypoint tells Docker what command to run by default
-# Dev B will mount the host files to /data and we scan that path
-ENTRYPOINT ["python", "scanner/main.py"]
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["/data"]

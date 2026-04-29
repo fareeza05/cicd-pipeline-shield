@@ -1,0 +1,26 @@
+# Keep the build context small — only ship what the scanner needs at runtime.
+
+# VCS
+.git/
+.gitignore
+
+# Python local state
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Test fixtures and prior scan output (not needed inside the image)
+tests/
+reports/
+
+# Docs and CI config (not used at runtime)
+*.md
+Jenkinsfile
+
+# OS / Editor
+.DS_Store
+.idea/
+.vscode/
+.dist/

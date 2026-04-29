@@ -92,4 +92,83 @@ Statelessness: No database is required. Each scan is independent, and results ar
 
 ---
 
+## CI/CD Pipeline Setup
+
+The repository ships a [Jenkinsfile](Jenkinsfile) that defines a 3-stage declarative pipeline (Checkout → Build → Scan) plus a `post` block that archives `reports/security_report.json` on every run.
+
+### 1. Run Jenkins locally (Docker-out-of-Docker)
+
+The pipeline shells out to `docker build` / `docker run`, so the Jenkins container needs access to the host Docker daemon. Equally important: the Jenkins workspace path **inside** the container must match the path **on** the host, because `docker run -v ${WORKSPACE}:/data` is resolved by the host daemon — not by Jenkins.
+
+The simplest way to satisfy both is to bind-mount a host directory at the same path used inside the container:
+
+```bash
+mkdir -p ~/jenkins_home
+
+docker run -d --name jenkins \
+  -p 8080:8080 -p 50000:50000 \
+  -v ~/jenkins_home:/var/jenkins_home \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  --group-add $(stat -f '%g' /var/run/docker.sock) \
+  jenkins/jenkins:lts
+```
+
+Then install the Docker CLI inside the container so the pipeline's `sh 'docker ...'` calls work:
+
+```bash
+docker exec -u root jenkins bash -c "apt-get update && apt-get install -y docker.io"
+```
+
+Get the initial admin password and finish the web setup at `http://localhost:8080`:
+
+```bash
+docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
+```
+
+### 2. Install required plugins
+
+From **Manage Jenkins → Plugins → Available**, install:
+- **GitHub** — webhook integration
+- **Pipeline** + **Pipeline: Stage View** — declarative pipeline support
+- **Docker Pipeline** — optional, for cleaner Docker syntax in future iterations
+
+### 3. Create the Pipeline job
+
+1. **New Item → Pipeline**, name it `shield-pipe`
+2. Under **Build Triggers**, check **GitHub hook trigger for GITScm polling**
+3. Under **Pipeline**:
+   - Definition: **Pipeline script from SCM**
+   - SCM: **Git**
+   - Repository URL: `https://github.com/fareeza05/cicd-pipeline-shield.git`
+   - Branch: `*/main`
+   - Script Path: `Jenkinsfile`
+4. **Save**
+
+### 4. Wire up the GitHub webhook
+
+Local Jenkins isn't reachable from `github.com` by default. Expose it with [ngrok](https://ngrok.com/):
+
+```bash
+ngrok http 8080
+```
+
+Copy the `https://...ngrok-free.app` URL, then in the GitHub repo:
+
+**Settings → Webhooks → Add webhook**
+- Payload URL: `https://<your-ngrok-id>.ngrok-free.app/github-webhook/` (trailing slash matters)
+- Content type: `application/json`
+- Events: **Just the push event**
+- Active: ✓
+
+### 5. Verify the loop
+
+```bash
+git commit --allow-empty -m "trigger pipeline"
+git push
+```
+
+Watch the Jenkins build start automatically. With the test fixtures in [tests/samples/](tests/samples/) intact, the build should go **RED** and `security_report.json` should be downloadable from the build's **Artifacts** section.
+
+---
+
 ## Example

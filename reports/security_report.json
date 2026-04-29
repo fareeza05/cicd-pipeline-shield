@@ -3,17 +3,17 @@
     "total_issues": 3,
     "findings": [
         {
-            "file": "/Users/fareezarahman/Desktop/cicd-pipeline-shield/tests/samples/emergency.txt",
+            "file": "/data/tests/samples/emergency.txt",
             "type": "Sensitive Data Leak",
             "detail": "AWS Access Key"
         },
         {
-            "file": "/Users/fareezarahman/Desktop/cicd-pipeline-shield/tests/samples/leaked.txt",
+            "file": "/data/tests/samples/leaked.txt",
             "type": "Sensitive Data Leak",
             "detail": "Potential Password/Secret"
         },
         {
-            "file": "/Users/fareezarahman/Desktop/cicd-pipeline-shield/scanner/engine.py",
+            "file": "/data/scanner/engine.py",
             "type": "Sensitive Data Leak",
             "detail": "Potential Password/Secret"
         }
