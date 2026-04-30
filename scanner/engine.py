@@ -1,6 +1,7 @@
 import os
 import re
 import stat
+import math
 
 class ScanEngine:
     def __init__(self, target_path):
@@ -20,12 +21,15 @@ class ScanEngine:
         }
 
     def run_all_checks(self):
-            """Main entry point for the engine logic."""
             for root, dirs, files in os.walk(self.target_path):
-                # Skip version control, virtual environments, and cache dirs
-                dirs[:] = [d for d in dirs if d not in {'.git', 'venv', '.venv', '__pycache__', 'node_modules'}]
+                # 1. Filter directories in-place (pruning the tree)
+                dirs[:] = [d for d in dirs if d not in self.ignore_list]
                 
                 for file in files:
+                    # 2. Skip files in the ignore list
+                    if file in self.ignore_list:
+                        continue
+                        
                     file_path = os.path.join(root, file)
                     self._audit_file_permissions(file_path)
                     self._scan_file_content(file_path)
@@ -46,24 +50,34 @@ class ScanEngine:
         except Exception:
             pass
 
-
     def _scan_file_content(self, file_path):
-        """Opens a file and runs regex signatures against its text."""
-        print(f"[DEBUG] Scanning file: {file_path}") # See if it's even opening the file
         try:
             with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                 content = f.read()
+                
+                # 1. Existing Regex Checks
                 for label, pattern in self.signatures.items():
                     if re.search(pattern, content):
-                        self.findings.append({
-                            "file": file_path,
-                            "type": "Sensitive Data Leak",
-                            "detail": label
-                        })
+                        self.findings.append({"file": file_path, "type": "Sensitive Data Leak", "detail": label})
+                
+                # 2. NEW: High-Entropy Detection
+                # Split content into individual 'words' or strings
+                words = content.split()
+                for word in words:
+                    # We only care about long strings (keys are usually 16+ chars)
+                    # And we ignore common things like long URLs
+                    if len(word) > 16 and not word.startswith(("http", "https")):
+                        entropy_score = self._calculate_entropy(word)
+                        
+                        # 4.5 is a standard threshold for 'random' looking strings
+                        if entropy_score > 4.5:
+                            self.findings.append({
+                                "file": file_path, 
+                                "type": "High-Entropy String (Potential Key)", 
+                                "detail": f"Entropy: {round(entropy_score, 2)}"
+                            })
         except Exception:
-            # This skips binary files like images that can't be read as text
             pass
-
     
     def _load_ignore_patterns(self):
         """Reads .shieldignore and returns a set of directory/file names to skip."""
@@ -84,3 +98,15 @@ class ScanEngine:
                 print(f"[!] Warning: Could not read .shieldignore: {e}")
         
         return patterns
+    
+
+    def _calculate_entropy(self, text):
+        """Calculates the Shannon entropy of a string."""
+        if not text:
+            return 0
+        entropy = 0
+        for x in range(256):
+            p_x = float(text.count(chr(x))) / len(text)
+            if p_x > 0:
+                entropy += - p_x * math.log(p_x, 2)
+        return entropy

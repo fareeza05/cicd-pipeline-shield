@@ -12,6 +12,7 @@ __pycache__
 
 # --- Docker & CI/CD ---
 .dockerignore
+Dockerfile
 Jenkinsfile
 deployment/
 
@@ -24,3 +25,4 @@ build/
 .vscode
 .idea
 .DS_Store
+README.md
