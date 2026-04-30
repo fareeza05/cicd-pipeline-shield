@@ -1,0 +1,26 @@
+# --- Version Control ---
+.git
+.github
+.gitignore
+
+# --- Python Environment ---
+venv
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+
+# --- Docker & CI/CD ---
+.dockerignore
+Jenkinsfile
+deployment/
+
+# --- Build & Reports ---
+reports/
+dist/
+build/
+
+# --- IDE & OS ---
+.vscode
+.idea
+.DS_Store

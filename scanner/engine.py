@@ -6,6 +6,9 @@ class ScanEngine:
     def __init__(self, target_path):
         self.target_path = target_path
         self.findings = []
+
+        #Loading ignore patterns 
+        self.ignore_list = self._load_ignore_patterns()
         
         # High-fidelity Regex Patterns
         self.signatures = {
@@ -60,3 +63,24 @@ class ScanEngine:
         except Exception:
             # This skips binary files like images that can't be read as text
             pass
+
+    
+    def _load_ignore_patterns(self):
+        """Reads .shieldignore and returns a set of directory/file names to skip."""
+        # Standard defaults to ensure the scanner doesn't break itself
+        patterns = {".git", "venv", "__pycache__", ".venv", ".shieldignore"}
+        
+        ignore_file = os.path.join(self.target_path, ".shieldignore")
+        
+        if os.path.exists(ignore_file):
+            try:
+                with open(ignore_file, 'r') as f:
+                    for line in f:
+                        clean_line = line.strip()
+                        # Ignore empty lines and comments
+                        if clean_line and not clean_line.startswith("#"):
+                            patterns.add(clean_line)
+            except Exception as e:
+                print(f"[!] Warning: Could not read .shieldignore: {e}")
+        
+        return patterns
