@@ -2,6 +2,7 @@ import os
 import re
 import stat
 import math
+from packaging import version
 
 class ScanEngine:
     def __init__(self, target_path):
@@ -15,8 +16,8 @@ class ScanEngine:
         self.signatures = {
             "AWS Access Key": r"AKIA[0-9A-Z]{16}",
             "Private Key Block": r"-----BEGIN [A-Z ]+ PRIVATE KEY-----",
-            # Catches key=val, key: val, "key" = val, 'key' = 'val', etc.
-            "Potential Password/Secret": r"""(?i)(password|passwd|secret|api_key|auth_token)['"]*\s*[:=]\s*.+""",
+            # Keyword must be the first token on its line to avoid matching pattern definitions
+            "Potential Password/Secret": r"""(?im)^\s*['"]*(?:export\s+)?(password|passwd|secret|api_key|auth_token)['"]*\s*[:=]\s*\S+""",
             "SSN (PII)": r"\b\d{3}-\d{2}-\d{4}\b"
         }
 
@@ -33,6 +34,8 @@ class ScanEngine:
                     file_path = os.path.join(root, file)
                     self._audit_file_permissions(file_path)
                     self._scan_file_content(file_path)
+                    if "requirements.txt" in file:
+                        self._audit_dependencies(file_path)
             
             return self.findings
     
@@ -40,8 +43,8 @@ class ScanEngine:
         """Checks if a file has dangerously broad permissions (777)."""
         try:
             mode = os.stat(file_path).st_mode
-            # Check for 'World Writable' or 'World Executable' (Octal 007)
-            if bool(mode & stat.S_IWOTH) or bool(mode & stat.S_IXOTH):
+            # World-executable (755) is normal for scripts; only world-writable is dangerous
+            if bool(mode & stat.S_IWOTH):
                 self.findings.append({
                     "file": file_path,
                     "type": "Dangerous Permissions",
@@ -60,22 +63,20 @@ class ScanEngine:
                     if re.search(pattern, content):
                         self.findings.append({"file": file_path, "type": "Sensitive Data Leak", "detail": label})
                 
-                # 2. NEW: High-Entropy Detection
-                # Split content into individual 'words' or strings
-                words = content.split()
-                for word in words:
-                    # We only care about long strings (keys are usually 16+ chars)
-                    # And we ignore common things like long URLs
+                # 2. High-Entropy Detection — one finding per file to avoid flooding the report
+                high_entropy_hits = []
+                for word in content.split():
                     if len(word) > 16 and not word.startswith(("http", "https")):
                         entropy_score = self._calculate_entropy(word)
-                        
-                        # 4.5 is a standard threshold for 'random' looking strings
                         if entropy_score > 4.5:
-                            self.findings.append({
-                                "file": file_path, 
-                                "type": "High-Entropy String (Potential Key)", 
-                                "detail": f"Entropy: {round(entropy_score, 2)}"
-                            })
+                            high_entropy_hits.append(round(entropy_score, 2))
+
+                if high_entropy_hits:
+                    self.findings.append({
+                        "file": file_path,
+                        "type": "High-Entropy String (Potential Key)",
+                        "detail": f"{len(high_entropy_hits)} high-entropy string(s) detected. Max entropy: {max(high_entropy_hits)}"
+                    })
         except Exception:
             pass
     
@@ -110,3 +111,35 @@ class ScanEngine:
             if p_x > 0:
                 entropy += - p_x * math.log(p_x, 2)
         return entropy
+    
+
+    def _audit_dependencies(self, file_path):
+        """Checks requirements.txt for known vulnerable library versions."""
+        # Mock Database: In a real app, you'd fetch this from OSV.dev or GitHub Advisory
+        VULNERABLE_PACKAGES = {
+            "flask": "2.2.0",  # Any version < 2.2.5 is 'vulnerable' for this demo
+            "requests": "2.28.0",
+            "django": "4.0.0"
+        }
+
+        if "requirements.txt" in file_path:
+            try:
+                with open(file_path, 'r') as f:
+                    for line in f:
+                        line = line.split("#")[0].split(";")[0].strip()
+                        if "==" not in line:
+                            continue
+                        parts = line.split("==", 1)
+                        if len(parts) != 2:
+                            continue
+                        pkg, ver = parts[0].strip(), parts[1].strip()
+                        if pkg.lower() in VULNERABLE_PACKAGES:
+                            vuln_ver = VULNERABLE_PACKAGES[pkg.lower()]
+                            if version.parse(ver) <= version.parse(vuln_ver):
+                                self.findings.append({
+                                    "file": file_path,
+                                    "type": "Vulnerable Dependency (SCA)",
+                                    "detail": f"{pkg} {ver} is outdated. Minimum safe version: >{vuln_ver}"
+                                })
+            except Exception as e:
+                print(f"[!] Error scanning dependencies: {e}")

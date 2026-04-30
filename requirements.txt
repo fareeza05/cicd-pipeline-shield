@@ -3,3 +3,6 @@ colorama==0.4.6   # To make the CLI output colorful (Red for threats!)
 
 # Testing (Developer A needs this for the /tests folder)
 pytest==7.4.0
+
+packaging==23.1
+flask==2.1.0
