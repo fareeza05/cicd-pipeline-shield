@@ -70,8 +70,17 @@ class ScanEngine:
         except Exception:
             pass
 
+    MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
+
     def _scan_file_content(self, file_path):
         try:
+            if os.path.getsize(file_path) > self.MAX_FILE_SIZE:
+                self.findings.append({
+                    "file": file_path,
+                    "type": "Skipped Large File",
+                    "detail": f"File exceeds {self.MAX_FILE_SIZE // (1024 * 1024)} MB limit and was not scanned"
+                })
+                return
             with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                 lines = f.readlines()
         except Exception:
