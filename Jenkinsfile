@@ -40,10 +40,11 @@ pipeline {
                 // container). Reports mounted read-write so the JSON lands
                 // back on the host for archival.
                 sh '''
-                    mkdir -p reports
-                    chmod 777 reports
+                    mkdir -p "${WORKSPACE}/reports"
+                    chmod 777 "${WORKSPACE}/reports"
                     rm -f reports/*.json
                     docker run --rm \
+                        --user $(id -u):$(id -g) \
                         -v "${WORKSPACE}":/data:ro \
                         -v "${WORKSPACE}/reports":/app/reports \
                         ${IMAGE_NAME}:${IMAGE_TAG} /data
