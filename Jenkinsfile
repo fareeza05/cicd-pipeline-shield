@@ -41,6 +41,7 @@ pipeline {
                 // back on the host for archival.
                 sh '''
                     mkdir -p reports
+                    chmod 777 reports
                     rm -f reports/*.json
                     docker run --rm \
                         -v "${WORKSPACE}":/data:ro \
