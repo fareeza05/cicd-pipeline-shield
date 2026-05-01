@@ -10,8 +10,16 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_NAME = 'shield-pipe'
-        IMAGE_TAG  = "${env.BUILD_NUMBER}"
+        IMAGE_NAME     = 'shield-pipe'
+        IMAGE_TAG      = "${env.BUILD_NUMBER}"
+        // HOST_JENKINS_HOME must be set as a Jenkins global env var
+        // (Manage Jenkins → Configure System → Global properties) to the
+        // macOS path that was bind-mounted as /var/jenkins_home in the
+        // Jenkins container.  Without it the docker daemon receives an
+        // in-container path (/var/jenkins_home/…) that doesn't exist on the
+        // macOS host, so Docker Desktop creates it as root and the scanner
+        // (UID 1000) gets Permission denied writing the report.
+        HOST_WORKSPACE = "${env.HOST_JENKINS_HOME}/workspace/${env.JOB_NAME}"
     }
 
     options {
@@ -41,12 +49,11 @@ pipeline {
                 // back on the host for archival.
                 sh '''
                     mkdir -p "${WORKSPACE}/reports"
-                    chmod 777 "${WORKSPACE}/reports"
-                    rm -f reports/*.json
+                    rm -f "${WORKSPACE}/reports/"*.json
                     docker run --rm \
                         --user $(id -u):$(id -g) \
-                        -v "${WORKSPACE}":/data:ro \
-                        -v "${WORKSPACE}/reports":/app/reports \
+                        -v "${HOST_WORKSPACE}":/data:ro \
+                        -v "${HOST_WORKSPACE}/reports":/app/reports \
                         ${IMAGE_NAME}:${IMAGE_TAG} /data
                 '''
             }
