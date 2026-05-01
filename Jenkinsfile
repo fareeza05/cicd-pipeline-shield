@@ -10,16 +10,8 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_NAME     = 'shield-pipe'
-        IMAGE_TAG      = "${env.BUILD_NUMBER}"
-        // HOST_JENKINS_HOME must be set as a Jenkins global env var
-        // (Manage Jenkins → Configure System → Global properties) to the
-        // macOS path that was bind-mounted as /var/jenkins_home in the
-        // Jenkins container.  Without it the docker daemon receives an
-        // in-container path (/var/jenkins_home/…) that doesn't exist on the
-        // macOS host, so Docker Desktop creates it as root and the scanner
-        // (UID 1000) gets Permission denied writing the report.
-        HOST_WORKSPACE = "${env.HOST_JENKINS_HOME}/workspace/${env.JOB_NAME}"
+        IMAGE_NAME = 'shield-pipe'
+        IMAGE_TAG  = "${env.BUILD_NUMBER}"
     }
 
     options {
@@ -43,17 +35,22 @@ pipeline {
 
         stage('Scan') {
             steps {
-                // Source mounted read-only (defense in depth: untrusted code
-                // shouldn't be able to mutate the workspace from inside the
-                // container). Reports mounted read-write so the JSON lands
-                // back on the host for archival.
+                // Docker-out-of-Docker path translation: the host Docker daemon
+                // needs macOS host paths, not the /var/jenkins_home path that
+                // only exists inside the Jenkins container. We derive the host
+                // path by inspecting the Jenkins container's own volume mounts
+                // so no manual env-var configuration is required.
                 sh '''
+                    HOST_JH=$(docker inspect jenkins \
+                        --format '{{range .Mounts}}{{if eq .Destination "/var/jenkins_home"}}{{.Source}}{{end}}{{end}}')
+                    HOST_WS="${HOST_JH}/workspace/${JOB_NAME}"
+
                     mkdir -p "${WORKSPACE}/reports"
                     rm -f "${WORKSPACE}/reports/"*.json
                     docker run --rm \
                         --user $(id -u):$(id -g) \
-                        -v "${HOST_WORKSPACE}":/data:ro \
-                        -v "${HOST_WORKSPACE}/reports":/app/reports \
+                        -v "${HOST_WS}":/data:ro \
+                        -v "${HOST_WS}/reports":/app/reports \
                         ${IMAGE_NAME}:${IMAGE_TAG} /data
                 '''
             }
